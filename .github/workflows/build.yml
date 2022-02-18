@@ -1,0 +1,46 @@
+name: Build firmware for keyboards
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: qmkfm/base_container
+    strategy:
+      fail-fast: false
+# Start of keyboard build matrix
+      matrix:
+        keyboard:
+        - planck/rev6
+        - crkbd/rev1
+        keymap:
+        - default
+        - via
+# End of keyboard build matrix
+
+    steps:
+
+    - name: Checkout QMK
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Build firmware
+      id: build
+      run: |
+        qmk compile -kb ${{ matrix.keyboard }} -km ${{ matrix.keymap }}
+        TARGET=$(echo "${{ matrix.keyboard }}" | sed 's#/#_#g')_${{ matrix.keymap }}
+        echo "::set-output name=artifact-name::${TARGET}"
+
+    - name: Archive firmware
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ steps.build.outputs.artifact-name }}
+        retention-days: 5
+        path: |
+          *.hex
+          *.bin
+          *.uf2
+      continue-on-error: true
+
